@@ -12,6 +12,7 @@ type Barber = {
     status: string;
     mode: string;
     break_minutes: number | null;
+    cut_duration: number;
 };
 
 type QueueEntry = {
@@ -61,7 +62,7 @@ export default function CustomerPage() {
     async function fetchBarbers() {
         const { data, error } = await supabase
             .from("barbers")
-            .select("id, name, status, mode, break_minutes")
+            .select("id, name, status, mode, break_minutes, cut_duration")
             .order("created_at", { ascending: true });
         if (error) { console.error(error); return; }
         setBarbers(data || []);
@@ -121,7 +122,8 @@ export default function CustomerPage() {
     }
 
     function getEstimatedWaitForBarber(barberId: number) {
-        return getQueueCountForBarber(barberId) * 25;
+        const barber = barbers.find((b) => b.id === barberId);
+        return getQueueCountForBarber(barberId) * (barber?.cut_duration ?? 25);
     }
 
     async function joinQueue(barberId: number) {

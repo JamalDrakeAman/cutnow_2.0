@@ -18,6 +18,7 @@ type BarberProfile = {
     status: string;
     mode: string;
     break_minutes: number | null;
+    cut_duration: number;
 };
 
 type Appointment = {
@@ -178,6 +179,16 @@ export default function BarberPage() {
         setBarber({ ...barber, status, break_minutes: status === "break" ? breakMinutes : null });
     }
 
+    async function updateCutDuration(minutes: number) {
+        if (!barber) return;
+        const { error } = await supabase
+            .from("barbers")
+            .update({ cut_duration: minutes })
+            .eq("id", barber.id);
+        if (error) { alert(error.message); return; }
+        setBarber({ ...barber, cut_duration: minutes });
+    }
+
     async function updateBarberMode(mode: string) {
         if (!barber) return;
         const { error } = await supabase
@@ -333,6 +344,30 @@ export default function BarberPage() {
                                 </button>
                             ))}
                         </div>
+                    </div>
+                </div>
+
+                {/* Schnittdauer */}
+                <div className="mt-4 rounded-3xl border border-white/5 bg-neutral-900 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
+                        Schnittdauer
+                    </p>
+                    <p className="mt-1 text-lg font-bold">
+                        {barber ? `${barber.cut_duration} Min pro Kunde` : "Lädt..."}
+                    </p>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                        {[15, 20, 25, 30, 45, 60].map((min) => (
+                            <button
+                                key={min}
+                                onClick={() => updateCutDuration(min)}
+                                className={`rounded-2xl py-3 font-bold transition-colors ${
+                                    barber?.cut_duration === min
+                                        ? "bg-amber-400 text-black"
+                                        : "bg-white/5 text-white hover:bg-white/10"
+                                }`}>
+                                {min} Min
+                            </button>
+                        ))}
                     </div>
                 </div>
 

@@ -27,9 +27,11 @@ function QueuePageContent() {
 
     const { lang, changeLang, t } = useLanguage();
     const [queue, setQueue] = useState<QueueEntry[]>([]);
+    const [cutDuration, setCutDuration] = useState(25);
 
     useEffect(() => {
         fetchQueue();
+        fetchCutDuration();
         const channel = supabase
             .channel("queue_entries_changes")
             .on(
@@ -40,6 +42,16 @@ function QueuePageContent() {
             .subscribe();
         return () => { supabase.removeChannel(channel); };
     }, [barberId]);
+
+    async function fetchCutDuration() {
+        if (!barberId) return;
+        const { data } = await supabase
+            .from("barbers")
+            .select("cut_duration")
+            .eq("id", barberId)
+            .single();
+        if (data) setCutDuration(data.cut_duration ?? 25);
+    }
 
     async function fetchQueue() {
         if (!barberId) return;
@@ -76,7 +88,7 @@ function QueuePageContent() {
         ? activeQueue.findIndex((item) => item.id === currentUser.id)
         : -1;
     const peopleBeforeYou = myActiveIndex >= 0 ? myActiveIndex : 0;
-    const estimatedWaitMinutes = peopleBeforeYou * 25;
+    const estimatedWaitMinutes = peopleBeforeYou * cutDuration;
     const hasValidEntry = Boolean(currentUser);
 
     function getStatusLabel(status: string) {
