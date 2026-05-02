@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -13,7 +13,7 @@ type QueueEntry = {
     created_at: string;
 };
 
-export default function QueuePage() {
+function QueuePageContent() {
     const searchParams = useSearchParams();
     const barberId = Number(searchParams.get("barberId"));
     const entryId = Number(searchParams.get("entryId"));
@@ -214,5 +214,17 @@ export default function QueuePage() {
 
             </div>
         </main>
+    );
+}
+
+export default function QueuePage() {
+    return (
+        <Suspense fallback={
+            <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-white">
+                <p className="text-neutral-400">Lade Warteschlange...</p>
+            </main>
+        }>
+            <QueuePageContent />
+        </Suspense>
     );
 }
