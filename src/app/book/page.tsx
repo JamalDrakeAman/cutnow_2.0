@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabase";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import BottomNav from "@/components/BottomNav";
+import { saveAppointmentId, getCustomerName, saveCustomerName } from "@/lib/customerStorage";
 
 type Barber = {
     id: number;
@@ -57,6 +59,7 @@ function BookPageContent() {
     const [bookedTime, setBookedTime] = useState<string | null>(null);
 
     useEffect(() => {
+        setCustomerName(getCustomerName());
         if (barberId) fetchBarber();
     }, [barberId]);
 
@@ -87,27 +90,31 @@ function BookPageContent() {
     async function bookAppointment() {
         if (!customerName.trim() || !selectedTime) return;
         setLoading(true);
-        const { error } = await supabase.from("appointments").insert([
+        saveCustomerName(customerName.trim());
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data, error } = await supabase.from("appointments").insert([
             {
                 barber_id: barberId,
                 customer_name: customerName.trim(),
                 date: selectedDate,
                 time: selectedTime,
                 status: "confirmed",
+                customer_id: user?.id ?? null,
             },
-        ]);
+        ]).select().single();
         setLoading(false);
         if (error) {
             alert(error.message);
             return;
         }
+        if (data) saveAppointmentId(data.id);
         setBookedTime(selectedTime);
         setBooked(true);
     }
 
     if (booked) {
         return (
-            <main className="flex min-h-screen items-center bg-neutral-950 px-5 text-white">
+            <main className="flex min-h-screen items-center bg-neutral-950 pb-28 px-5 text-white">
                 <div className="mx-auto w-full max-w-sm">
                     <div className="rounded-3xl bg-amber-400 p-8 text-black text-center">
                         <p className="text-5xl">✓</p>
@@ -120,17 +127,23 @@ function BookPageContent() {
                         </p>
                     </div>
                     <Link
+                        href="/my-appointments"
+                        className="mt-4 block rounded-2xl bg-amber-400/10 border border-amber-400/30 py-3.5 text-center font-bold text-amber-400 transition-colors hover:bg-amber-400/20">
+                        Meine Termine anzeigen
+                    </Link>
+                    <Link
                         href="/customer"
-                        className="mt-4 block rounded-2xl border border-white/10 py-3.5 text-center font-bold text-neutral-400 transition-colors hover:bg-white/5">
+                        className="mt-2 block rounded-2xl border border-white/10 py-3.5 text-center font-bold text-neutral-400 transition-colors hover:bg-white/5">
                         ← Zurück zur Übersicht
                     </Link>
                 </div>
+                <BottomNav />
             </main>
         );
     }
 
     return (
-        <main className="min-h-screen bg-neutral-950 px-5 py-8 text-white">
+        <main className="min-h-screen bg-neutral-950 pb-28 px-5 py-8 text-white">
             <div className="mx-auto max-w-md">
 
                 <Link href="/customer" className="text-sm text-neutral-400 transition-colors hover:text-white">
@@ -219,6 +232,7 @@ function BookPageContent() {
                 </button>
 
             </div>
+            <BottomNav />
         </main>
     );
 }

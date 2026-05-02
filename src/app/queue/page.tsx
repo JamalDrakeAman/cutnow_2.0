@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useLanguage } from "@/lib/useLanguage";
 import { Language } from "@/lib/translations";
+import BottomNav from "@/components/BottomNav";
+import { clearActiveQueue } from "@/lib/customerStorage";
 
 type QueueEntry = {
     id: number;
@@ -79,10 +81,15 @@ function QueuePageContent() {
             .delete()
             .eq("id", id);
         if (error) { alert(error.message); return; }
+        clearActiveQueue();
         fetchQueue();
     }
 
     const currentUser = queue.find((item) => item.id === entryId);
+
+    useEffect(() => {
+        if (currentUser?.status === "done") clearActiveQueue();
+    }, [currentUser?.status]);
     const activeQueue = queue.filter((e) => e.status !== "skipped" && e.status !== "done");
     const myActiveIndex = currentUser
         ? activeQueue.findIndex((item) => item.id === currentUser.id)
@@ -101,7 +108,7 @@ function QueuePageContent() {
     }
 
     return (
-        <main className="min-h-screen bg-neutral-950 px-5 py-8 text-white">
+        <main className="min-h-screen bg-neutral-950 pb-28 px-5 py-8 text-white">
             <div className="mx-auto max-w-md">
 
                 <div className="mb-6 flex items-center justify-between">
@@ -229,6 +236,7 @@ function QueuePageContent() {
                 )}
 
             </div>
+            <BottomNav />
         </main>
     );
 }

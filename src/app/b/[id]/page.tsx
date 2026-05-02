@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/useLanguage";
 import { Language } from "@/lib/translations";
 import Link from "next/link";
+import BottomNav from "@/components/BottomNav";
+import { saveActiveQueue, saveCustomerName, getCustomerName } from "@/lib/customerStorage";
 
 type Barber = {
     id: number;
@@ -50,6 +52,7 @@ export default function BarberProfilePage() {
     const [notFound, setNotFound] = useState(false);
 
     useEffect(() => {
+        setCustomerName(getCustomerName());
         if (barberId) {
             fetchBarber();
             fetchQueue();
@@ -89,13 +92,17 @@ export default function BarberProfilePage() {
     async function joinQueue() {
         if (!barber) return;
         setLoading(true);
+        const name = customerName || "Anonym";
+        saveCustomerName(name);
+        const { data: { user } } = await supabase.auth.getUser();
         const { data, error } = await supabase
             .from("queue_entries")
-            .insert([{ name: customerName || "Anonym", status: "waiting", barber_id: barber.id }])
+            .insert([{ name, status: "waiting", barber_id: barber.id, customer_id: user?.id ?? null }])
             .select()
             .single();
         setLoading(false);
         if (error) { alert(error.message); return; }
+        saveActiveQueue(barber.id, data.id);
         router.push(`/queue?barberId=${barber.id}&entryId=${data.id}`);
     }
 
@@ -141,7 +148,7 @@ export default function BarberProfilePage() {
     }
 
     return (
-        <main className="min-h-screen bg-neutral-950 px-5 py-8 text-white">
+        <main className="min-h-screen bg-neutral-950 pb-28 px-5 py-8 text-white">
             <div className="mx-auto max-w-md">
 
                 {/* Header */}
@@ -256,6 +263,7 @@ export default function BarberProfilePage() {
                 )}
 
             </div>
+            <BottomNav />
         </main>
     );
 }

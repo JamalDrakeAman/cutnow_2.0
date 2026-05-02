@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/useLanguage";
 import { Language } from "@/lib/translations";
+import BottomNav from "@/components/BottomNav";
+import { saveActiveQueue, saveCustomerName } from "@/lib/customerStorage";
+import { useCustomerAuth } from "@/lib/useCustomerAuth";
 
 type Barber = {
     id: number;
@@ -39,6 +42,7 @@ export default function CustomerPage() {
 
     const router = useRouter();
     const { lang, changeLang, t } = useLanguage();
+    const { user, profile, loading: authLoading } = useCustomerAuth();
 
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [queueEntries, setQueueEntries] = useState<QueueEntry[]>([]);
@@ -46,6 +50,14 @@ export default function CustomerPage() {
     const [loadingBarberId, setLoadingBarberId] = useState<number | null>(null);
 
     useEffect(() => {
+        if (!authLoading && !user) {
+            router.replace("/customer-auth");
+            return;
+        }
+    }, [authLoading, user, router]);
+
+    useEffect(() => {
+        if (profile?.name) setCustomerName(profile.name);
         fetchBarbers();
         fetchQueueEntries();
         const channel = supabase
@@ -128,9 +140,11 @@ export default function CustomerPage() {
 
     async function joinQueue(barberId: number) {
         setLoadingBarberId(barberId);
+        const name = customerName || profile?.name || "Anonym";
+        saveCustomerName(name);
         const { data, error } = await supabase
             .from("queue_entries")
-            .insert([{ name: customerName || "Anonym", status: "waiting", barber_id: barberId }])
+            .insert([{ name, status: "waiting", barber_id: barberId, customer_id: user?.id ?? null }])
             .select()
             .single();
         if (error) {
@@ -138,11 +152,20 @@ export default function CustomerPage() {
             setLoadingBarberId(null);
             return;
         }
+        saveActiveQueue(barberId, data.id);
         router.push(`/queue?barberId=${barberId}&entryId=${data.id}`);
     }
 
+    if (authLoading || !user) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-white">
+                <p className="text-neutral-500">Lädt...</p>
+            </main>
+        );
+    }
+
     return (
-        <main className="min-h-screen bg-neutral-950 px-5 py-8 text-white">
+        <main className="min-h-screen bg-neutral-950 pb-28 px-5 py-8 text-white">
             <div className="mx-auto max-w-md">
 
                 <div className="mb-8">
@@ -256,6 +279,7 @@ export default function CustomerPage() {
                 </div>
 
             </div>
+            <BottomNav />
         </main>
     );
 }
