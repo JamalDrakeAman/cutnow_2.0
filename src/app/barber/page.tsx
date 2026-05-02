@@ -2,6 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 
 type QueueEntry = {
     id: number;
@@ -43,8 +44,11 @@ export default function BarberPage() {
     const [queue, setQueue] = useState<QueueEntry[]>([]);
     const [barber, setBarber] = useState<BarberProfile | null>(null);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [origin, setOrigin] = useState("");
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
+        setOrigin(window.location.origin);
         fetchBarberProfile();
         const channel = supabase
             .channel("barber_queue_changes")
@@ -64,6 +68,12 @@ export default function BarberPage() {
             supabase.removeChannel(channel);
         };
     }, []);
+
+    async function copyLink(link: string) {
+        await navigator.clipboard.writeText(link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
 
     async function logout() {
         await supabase.auth.signOut();
@@ -252,6 +262,41 @@ export default function BarberPage() {
                         </button>
                     </div>
                 </div>
+
+                {/* Dein Link */}
+                {barber && origin && (
+                    <div className="mt-6 rounded-3xl border border-amber-400/20 bg-amber-400/5 p-5">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-amber-400">
+                            Dein Kundenlink
+                        </p>
+                        <p className="mt-1 truncate text-sm font-semibold text-white">
+                            {origin}/b/{barber.id}
+                        </p>
+
+                        <div className="mt-4 flex gap-4">
+                            <div className="rounded-2xl bg-neutral-950 p-3">
+                                <QRCodeSVG
+                                    value={`${origin}/b/${barber.id}`}
+                                    size={110}
+                                    bgColor="#0a0a0a"
+                                    fgColor="#fbbf24"
+                                    level="M"
+                                />
+                            </div>
+
+                            <div className="flex flex-1 flex-col gap-2">
+                                <p className="text-xs text-neutral-400">
+                                    Teile diesen Link oder QR-Code mit deinen Kunden. Sie landen direkt auf deiner Seite.
+                                </p>
+                                <button
+                                    onClick={() => copyLink(`${origin}/b/${barber.id}`)}
+                                    className="mt-auto w-full rounded-2xl bg-amber-400 py-2.5 text-sm font-bold text-black transition-colors hover:bg-amber-300">
+                                    {copied ? "✓ Kopiert!" : "Link kopieren"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Arbeitsmodus */}
                 <div className="mt-6 rounded-3xl border border-white/5 bg-neutral-900 p-5">
