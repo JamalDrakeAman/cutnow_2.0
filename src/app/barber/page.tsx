@@ -20,6 +20,14 @@ type BarberProfile = {
     break_minutes: number | null;
 };
 
+type Appointment = {
+    id: number;
+    customer_name: string;
+    date: string;
+    time: string;
+    status: string;
+};
+
 function getInitials(name: string) {
     return name
         .split(" ")
@@ -33,6 +41,7 @@ export default function BarberPage() {
 
     const [queue, setQueue] = useState<QueueEntry[]>([]);
     const [barber, setBarber] = useState<BarberProfile | null>(null);
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
 
     useEffect(() => {
         fetchBarberProfile();
@@ -77,6 +86,7 @@ export default function BarberPage() {
         }
         setBarber(data);
         fetchQueue(data.id);
+        fetchAppointments(data.id);
     }
 
     async function fetchQueue(barberId?: number) {
@@ -92,6 +102,36 @@ export default function BarberPage() {
             return;
         }
         setQueue(data || []);
+    }
+
+    async function fetchAppointments(barberId: number) {
+        const today = new Date().toISOString().split("T")[0];
+        const { data } = await supabase
+            .from("appointments")
+            .select("*")
+            .eq("barber_id", barberId)
+            .eq("date", today)
+            .not("status", "eq", "cancelled")
+            .order("time", { ascending: true });
+        setAppointments(data || []);
+    }
+
+    async function finishAppointment(id: number) {
+        const { error } = await supabase
+            .from("appointments")
+            .update({ status: "done" })
+            .eq("id", id);
+        if (error) { alert(error.message); return; }
+        if (barber) fetchAppointments(barber.id);
+    }
+
+    async function cancelAppointment(id: number) {
+        const { error } = await supabase
+            .from("appointments")
+            .update({ status: "cancelled" })
+            .eq("id", id);
+        if (error) { alert(error.message); return; }
+        if (barber) fetchAppointments(barber.id);
     }
 
     async function finishCurrentCustomer() {
@@ -353,6 +393,52 @@ export default function BarberPage() {
                         </div>
                     </div>
                 )}
+
+                {/* Termine heute */}
+                <div className="mt-6 rounded-3xl border border-white/5 bg-neutral-900 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
+                        Termine heute
+                    </p>
+
+                    {appointments.length === 0 ? (
+                        <p className="mt-3 text-neutral-400">Keine Termine für heute.</p>
+                    ) : (
+                        <div className="mt-3 space-y-3">
+                            {appointments.map((appt) => (
+                                <div
+                                    key={appt.id}
+                                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 ${
+                                        appt.status === "done"
+                                            ? "border-white/5 opacity-50"
+                                            : "border-white/10 bg-neutral-800/40"
+                                    }`}>
+                                    <div>
+                                        <p className="font-bold">{appt.customer_name}</p>
+                                        <p className="text-sm font-semibold text-amber-400">
+                                            {appt.time} Uhr
+                                        </p>
+                                    </div>
+                                    {appt.status !== "done" ? (
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => finishAppointment(appt.id)}
+                                                className="rounded-xl bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-400 transition-colors hover:bg-amber-400/20">
+                                                Fertig
+                                            </button>
+                                            <button
+                                                onClick={() => cancelAppointment(appt.id)}
+                                                className="rounded-xl bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition-colors hover:bg-red-500/20">
+                                                Absagen
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs font-semibold text-neutral-500">✓ Fertig</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
             </div>
         </main>

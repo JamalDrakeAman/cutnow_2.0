@@ -3,6 +3,8 @@
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/lib/useLanguage";
+import { Language } from "@/lib/translations";
 
 type Barber = {
     id: number;
@@ -27,9 +29,16 @@ function getInitials(name: string) {
         .slice(0, 2);
 }
 
+const LANGUAGES: { value: Language; label: string }[] = [
+    { value: "de", label: "DE" },
+    { value: "en", label: "EN" },
+];
+
 export default function CustomerPage() {
 
     const router = useRouter();
+    const { lang, changeLang, t } = useLanguage();
+
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [queueEntries, setQueueEntries] = useState<QueueEntry[]>([]);
     const [customerName, setCustomerName] = useState("");
@@ -42,19 +51,11 @@ export default function CustomerPage() {
             .channel("customer_queue_changes")
             .on(
                 "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "queue_entries",
-                },
-                () => {
-                    fetchQueueEntries();
-                }
+                { event: "*", schema: "public", table: "queue_entries" },
+                () => { fetchQueueEntries(); }
             )
             .subscribe();
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return () => { supabase.removeChannel(channel); };
     }, []);
 
     async function fetchBarbers() {
@@ -62,10 +63,7 @@ export default function CustomerPage() {
             .from("barbers")
             .select("id, name, status, mode, break_minutes")
             .order("created_at", { ascending: true });
-        if (error) {
-            console.error(error);
-            return;
-        }
+        if (error) { console.error(error); return; }
         setBarbers(data || []);
     }
 
@@ -74,10 +72,7 @@ export default function CustomerPage() {
             .from("queue_entries")
             .select("id, barber_id, status")
             .not("status", "in", '("skipped","done")');
-        if (error) {
-            console.error(error);
-            return;
-        }
+        if (error) { console.error(error); return; }
         setQueueEntries(data || []);
     }
 
@@ -85,35 +80,35 @@ export default function CustomerPage() {
         if (status === "available") {
             return (
                 <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-400">
-                    ● verfügbar
+                    ● {t("statusAvailable")}
                 </span>
             );
         }
         if (status === "break") {
             return (
                 <span className="rounded-full bg-yellow-400/10 px-3 py-1 text-xs font-semibold text-yellow-400">
-                    ⏸ Pause{breakMinutes ? ` · ${breakMinutes} Min` : ""}
+                    ⏸ {t("statusBreak")}{breakMinutes ? ` · ${breakMinutes} ${t("min")}` : ""}
                 </span>
             );
         }
         if (status === "vacation") {
             return (
                 <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400">
-                    ✕ Urlaub
+                    ✕ {t("statusVacation")}
                 </span>
             );
         }
         return (
             <span className="rounded-full bg-neutral-700/50 px-3 py-1 text-xs font-semibold text-neutral-400">
-                ● nicht da
+                ● {t("statusOffline")}
             </span>
         );
     }
 
     function getModeLabel(mode: string) {
-        if (mode === "queue") return "Warteschlange";
-        if (mode === "appointment") return "Nur Termine";
-        if (mode === "hybrid") return "Warteschlange + Termine";
+        if (mode === "queue") return t("modeQueue");
+        if (mode === "appointment") return t("modeAppointment");
+        if (mode === "hybrid") return t("modeHybrid");
         return mode;
     }
 
@@ -133,18 +128,11 @@ export default function CustomerPage() {
         setLoadingBarberId(barberId);
         const { data, error } = await supabase
             .from("queue_entries")
-            .insert([
-                {
-                    name: customerName || "Anonym",
-                    status: "waiting",
-                    barber_id: barberId,
-                },
-            ])
+            .insert([{ name: customerName || "Anonym", status: "waiting", barber_id: barberId }])
             .select()
             .single();
         if (error) {
             alert(error.message);
-            console.error(error);
             setLoadingBarberId(null);
             return;
         }
@@ -156,18 +144,37 @@ export default function CustomerPage() {
             <div className="mx-auto max-w-md">
 
                 <div className="mb-8">
-                    <p className="text-sm font-semibold text-amber-400">CutNow</p>
-                    <h1 className="mt-1 text-3xl font-bold tracking-tight">
-                        Wähle deinen Barber
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-amber-400">{t("appName")}</p>
+
+                        {/* Sprachwechsler */}
+                        <div className="flex items-center gap-1 rounded-xl bg-neutral-900 p-1">
+                            {LANGUAGES.map((l) => (
+                                <button
+                                    key={l.value}
+                                    onClick={() => changeLang(l.value)}
+                                    className={`rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
+                                        lang === l.value
+                                            ? "bg-amber-400 text-black"
+                                            : "text-neutral-400 hover:text-white"
+                                    }`}>
+                                    {l.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <h1 className="mt-3 text-3xl font-bold tracking-tight">
+                        {t("customerTitle")}
                     </h1>
                     <p className="mt-2 text-neutral-400">
-                        Live-Status · Wartezeit · Direkt einchecken
+                        {t("customerSubtitle")}
                     </p>
                 </div>
 
                 <input
                     type="text"
-                    placeholder="Dein Name"
+                    placeholder={t("namePlaceholder")}
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     className="w-full rounded-2xl border border-white/10 bg-neutral-900 px-4 py-3.5 text-white outline-none placeholder:text-neutral-500 focus:border-amber-400/50 transition-colors"
@@ -188,7 +195,6 @@ export default function CustomerPage() {
                                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15 text-sm font-bold text-amber-400">
                                         {getInitials(barber.name)}
                                     </div>
-
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2">
                                             <h2 className="text-lg font-bold truncate">{barber.name}</h2>
@@ -202,12 +208,14 @@ export default function CustomerPage() {
 
                                 <div className="mt-4 grid grid-cols-2 gap-3">
                                     <div className="rounded-xl bg-neutral-800/60 p-3.5">
-                                        <p className="text-xs text-neutral-400">In der Schlange</p>
-                                        <p className="mt-1 text-xl font-bold">{count} {count === 1 ? "Person" : "Personen"}</p>
+                                        <p className="text-xs text-neutral-400">{t("inQueue")}</p>
+                                        <p className="mt-1 text-xl font-bold">
+                                            {count} {count === 1 ? t("person") : t("persons")}
+                                        </p>
                                     </div>
                                     <div className="rounded-xl bg-neutral-800/60 p-3.5">
-                                        <p className="text-xs text-neutral-400">Wartezeit ca.</p>
-                                        <p className="mt-1 text-xl font-bold">{wait} Min</p>
+                                        <p className="text-xs text-neutral-400">{t("waitApprox")}</p>
+                                        <p className="mt-1 text-xl font-bold">{wait} {t("min")}</p>
                                     </div>
                                 </div>
 
@@ -218,18 +226,18 @@ export default function CustomerPage() {
                                             disabled={loadingBarberId === barber.id || !canJoin}
                                             className="w-full rounded-2xl bg-amber-400 py-3.5 font-bold text-black transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40">
                                             {loadingBarberId === barber.id
-                                                ? "Wird eingetragen..."
+                                                ? t("adding")
                                                 : canJoin
-                                                    ? "In Warteschlange eintragen"
-                                                    : "Aktuell nicht verfügbar"}
+                                                    ? t("joinQueue")
+                                                    : t("unavailable")}
                                         </button>
                                     )}
 
                                     {(barber.mode === "appointment" || barber.mode === "hybrid") && (
                                         <button
-                                            onClick={() => alert("Termine kommen bald! 🗓️")}
+                                            onClick={() => router.push(`/book?barberId=${barber.id}`)}
                                             className="w-full rounded-2xl border border-white/10 py-3.5 font-bold text-white transition-colors hover:bg-white/5">
-                                            Termin buchen
+                                            {t("bookAppointment")}
                                         </button>
                                     )}
                                 </div>
@@ -240,7 +248,7 @@ export default function CustomerPage() {
 
                     {barbers.length === 0 && (
                         <div className="rounded-2xl border border-white/5 bg-neutral-900 p-6 text-center">
-                            <p className="text-neutral-400">Noch keine Friseure gefunden.</p>
+                            <p className="text-neutral-400">{t("noBarbers")}</p>
                         </div>
                     )}
                 </div>
